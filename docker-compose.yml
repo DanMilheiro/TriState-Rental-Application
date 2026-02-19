@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  rental-tracker:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - BACKUP_PATH=/app/backups
+      - BACKUP_ENABLED=true
+    volumes:
+      # Windows path mapping - ensure the path exists on your Windows machine
+      - C:\Users\Service 2\TriStateRentals\Backups:/app/backups
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('fs').accessSync('/app/backups', require('fs').constants.W_OK)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

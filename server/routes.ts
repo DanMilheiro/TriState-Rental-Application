@@ -2,6 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createClient } from "@supabase/supabase-js";
+import { generateAgreementPDF } from "./services/pdf-generator";
+import { saveAgreementBackup, initializeBackupDirectories, getBackupStatus, readBackupFile } from "./services/file-storage";
+import { exportVehiclesToCSV } from "./services/vehicle-export";
+import { performDatabaseBackup } from "./services/database-backup";
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
@@ -12,6 +16,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  await initializeBackupDirectories();
+
   app.get("/api/vehicles", async (req, res) => {
     try {
       const { data, error } = await supabase
@@ -213,6 +219,21 @@ export async function registerRoutes(
         .single();
 
       if (error) throw error;
+
+      try {
+        const pdfBuffer = await generateAgreementPDF(data);
+        await saveAgreementBackup(
+          data.id,
+          data.agreement_number,
+          data.renter_name,
+          pdfBuffer,
+          data
+        );
+        console.log(`Backup saved for agreement ${data.agreement_number}`);
+      } catch (backupError) {
+        console.error("Error saving backup (agreement created successfully):", backupError);
+      }
+
       res.json(data);
     } catch (error) {
       console.error("Error creating agreement:", error);
@@ -249,6 +270,65 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating agreement:", error);
       res.status(500).json({ error: "Failed to update agreement" });
+    }
+  });
+
+  app.get("/api/backups/status", async (req, res) => {
+    try {
+      const status = await getBackupStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching backup status:", error);
+      res.status(500).json({ error: "Failed to fetch backup status" });
+    }
+  });
+
+  app.get("/api/agreements/:id/pdf", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const { data: backupRecord } = await supabase
+        .from("backup_metadata")
+        .select("file_path")
+        .eq("agreement_id", id)
+        .eq("backup_type", "pdf")
+        .eq("backup_status", "success")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!backupRecord) {
+        return res.status(404).json({ error: "PDF backup not found" });
+      }
+
+      const pdfBuffer = await readBackupFile(backupRecord.file_path);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="agreement_${id}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      res.status(500).json({ error: "Failed to download PDF" });
+    }
+  });
+
+  app.post("/api/export/vehicles", async (req, res) => {
+    try {
+      const filePath = await exportVehiclesToCSV();
+      res.json({ success: true, filePath });
+    } catch (error) {
+      console.error("Error exporting vehicles:", error);
+      res.status(500).json({ error: "Failed to export vehicles" });
+    }
+  });
+
+  app.post("/api/backup/database", async (req, res) => {
+    try {
+      const filePath = await performDatabaseBackup();
+      res.json({ success: true, filePath });
+    } catch (error) {
+      console.error("Error backing up database:", error);
+      res.status(500).json({ error: "Failed to backup database" });
     }
   });
 
