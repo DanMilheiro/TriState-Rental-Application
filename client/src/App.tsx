@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { 
-  Car, 
-  FileText, 
-  LayoutDashboard, 
-  Plus, 
-  Search, 
-  CheckCircle2, 
-  Clock, 
+import {
+  Car,
+  FileText,
+  LayoutDashboard,
+  Plus,
+  Search,
+  CheckCircle2,
+  Clock,
   ChevronRight,
   TrendingUp,
   Users
@@ -14,16 +14,19 @@ import {
 import { Link, useLocation, Switch, Route } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { RentalAgreementForm } from "@/components/RentalAgreementForm";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 // Mock Data
 const MOCK_VEHICLES = [
@@ -42,12 +45,18 @@ const MOCK_AGREEMENTS = [
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [isAgreementFormOpen, setIsAgreementFormOpen] = useState(false);
 
   const navItems = [
     { href: "/", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/vehicles", icon: Car, label: "Vehicles" },
     { href: "/agreements", icon: FileText, label: "Agreements" },
   ];
+
+  const handleAgreementSubmit = (data: any) => {
+    console.log("Agreement data:", data);
+    toast.success("Rental agreement created successfully!");
+  };
 
   return (
     <div className="flex h-screen bg-[#F8FAFC]">
@@ -63,8 +72,8 @@ function Layout({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <a className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                location === item.href 
-                  ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                location === item.href
+                  ? "bg-primary text-white shadow-lg shadow-primary/20"
                   : "text-muted-foreground hover:bg-secondary"
               }`}>
                 <item.icon className="w-5 h-5" />
@@ -79,7 +88,12 @@ function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-y-auto">
         <header className="h-16 glass-panel border-b px-8 flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-lg font-semibold">Welcome Back, Admin</h2>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setIsAgreementFormOpen(true)}
+          >
             <Plus className="w-4 h-4" />
             New Agreement
           </Button>
@@ -88,16 +102,27 @@ function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <RentalAgreementForm
+        open={isAgreementFormOpen}
+        onOpenChange={setIsAgreementFormOpen}
+        onSubmit={handleAgreementSubmit}
+      />
     </div>
   );
 }
 
 function Dashboard() {
+  const totalVehicles = MOCK_VEHICLES.length;
+  const loanedVehicles = MOCK_VEHICLES.filter(v => v.status === "Loaned").length;
+  const loanedPercentage = Math.round((loanedVehicles / totalVehicles) * 100);
+  const [selectedAgreement, setSelectedAgreement] = useState<typeof MOCK_AGREEMENTS[0] | null>(null);
+
   const stats = [
-    { label: "Total Vehicles", value: "24", icon: Car, color: "text-blue-600", bg: "bg-blue-100" },
-    { label: "Currently Loaned", value: "8", icon: Clock, color: "text-orange-600", bg: "bg-orange-100" },
-    { label: "Active Agreements", value: "12", icon: FileText, color: "text-green-600", bg: "bg-green-100" },
-    { label: "Monthly Growth", value: "+12%", icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: "Total Vehicles", value: totalVehicles.toString(), icon: Car, color: "text-blue-600", bg: "bg-blue-100" },
+    { label: "Currently Loaned", value: loanedVehicles.toString(), icon: Clock, color: "text-orange-600", bg: "bg-orange-100" },
+    { label: "Active Agreements", value: MOCK_AGREEMENTS.filter(a => a.status === "Active").length.toString(), icon: FileText, color: "text-green-600", bg: "bg-green-100" },
+    { label: "Fleet Utilization", value: `${loanedPercentage}%`, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
   ];
 
   return (
@@ -128,7 +153,11 @@ function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {MOCK_AGREEMENTS.map((agr) => (
-                <div key={agr.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/50">
+                <div
+                  key={agr.id}
+                  className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer"
+                  onClick={() => setSelectedAgreement(agr)}
+                >
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-white rounded-lg subtle-shadow">
                       <FileText className="w-5 h-5 text-primary" />
@@ -150,7 +179,9 @@ function Dashboard() {
         <Card className="border-none subtle-shadow">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Vehicle Quick Access</CardTitle>
-            <Button variant="link" size="sm">View All</Button>
+            <Link href="/vehicles">
+              <Button variant="link" size="sm">View All</Button>
+            </Link>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -169,6 +200,51 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!selectedAgreement} onOpenChange={() => setSelectedAgreement(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Agreement Details</DialogTitle>
+          </DialogHeader>
+          {selectedAgreement && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Agreement ID</p>
+                  <p className="font-semibold">{selectedAgreement.id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={selectedAgreement.status === "Active" ? "default" : "secondary"}>
+                    {selectedAgreement.status}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Customer</p>
+                <p className="font-semibold">{selectedAgreement.customer}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Vehicle</p>
+                <p className="font-semibold">{selectedAgreement.vehicle}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Start Date</p>
+                <p className="font-semibold">{selectedAgreement.date}</p>
+              </div>
+              <div className="pt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setSelectedAgreement(null)}>
+                  Close
+                </Button>
+                <Button>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Print Agreement
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
