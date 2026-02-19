@@ -3,6 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createClient } from "@supabase/supabase-js";
 
+if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+  console.error("Missing Supabase environment variables!");
+  console.error("VITE_SUPABASE_URL:", process.env.VITE_SUPABASE_URL ? "Set" : "Missing");
+  console.error("VITE_SUPABASE_ANON_KEY:", process.env.VITE_SUPABASE_ANON_KEY ? "Set" : "Missing");
+}
+
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY!
