@@ -25,8 +25,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RentalAgreementForm } from "@/components/RentalAgreementForm";
+import { VehicleEditDialog } from "@/components/VehicleEditDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Trash2, Edit } from "lucide-react";
 
 // Mock Data
 const MOCK_VEHICLES = [
@@ -113,10 +126,20 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function Dashboard() {
-  const totalVehicles = MOCK_VEHICLES.length;
-  const loanedVehicles = MOCK_VEHICLES.filter(v => v.status === "Loaned").length;
-  const loanedPercentage = Math.round((loanedVehicles / totalVehicles) * 100);
   const [selectedAgreement, setSelectedAgreement] = useState<typeof MOCK_AGREEMENTS[0] | null>(null);
+
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () => {
+      const response = await fetch("/api/vehicles");
+      if (!response.ok) throw new Error("Failed to fetch vehicles");
+      return response.json();
+    },
+  });
+
+  const totalVehicles = vehicles.length;
+  const loanedVehicles = vehicles.filter((v: any) => v.status === "Loaned").length;
+  const loanedPercentage = totalVehicles > 0 ? Math.round((loanedVehicles / totalVehicles) * 100) : 0;
 
   const stats = [
     { label: "Total Vehicles", value: totalVehicles.toString(), icon: Car, color: "text-blue-600", bg: "bg-blue-100" },
@@ -185,7 +208,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {MOCK_VEHICLES.slice(0, 4).map((car) => (
+              {vehicles.slice(0, 4).map((car: any) => (
                 <div key={car.id} className="flex items-center justify-between p-3 border-b last:border-0">
                   <div className="flex items-center gap-3">
                     <Car className="w-4 h-4 text-muted-foreground" />
@@ -251,9 +274,106 @@ function Dashboard() {
 
 function Vehicles() {
   const [search, setSearch] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<any | null>(null);
+  const [editMode, setEditMode] = useState<"add" | "edit">("add");
 
-  const filteredVehicles = MOCK_VEHICLES.filter(v => 
-    v.make.toLowerCase().includes(search.toLowerCase()) || 
+  const queryClient = useQueryClient();
+
+  const { data: vehicles = [], isLoading } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () => {
+      const response = await fetch("/api/vehicles");
+      if (!response.ok) throw new Error("Failed to fetch vehicles");
+      return response.json();
+    },
+  });
+
+  const createVehicleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("/api/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to create vehicle");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast.success("Vehicle added successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to add vehicle");
+    },
+  });
+
+  const updateVehicleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch(`/api/vehicles/${data.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to update vehicle");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast.success("Vehicle updated successfully!");
+    },
+    onError: () => {
+      toast.error("Failed to update vehicle");
+    },
+  });
+
+  const deleteVehicleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete vehicle");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast.success("Vehicle deleted successfully!");
+      setVehicleToDelete(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete vehicle");
+    },
+  });
+
+  const handleAddVehicle = () => {
+    setSelectedVehicle(null);
+    setEditMode("add");
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditVehicle = (vehicle: any) => {
+    setSelectedVehicle(vehicle);
+    setEditMode("edit");
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveVehicle = (data: any) => {
+    if (editMode === "edit") {
+      updateVehicleMutation.mutate(data);
+    } else {
+      createVehicleMutation.mutate(data);
+    }
+  };
+
+  const handleDeleteVehicle = () => {
+    if (vehicleToDelete) {
+      deleteVehicleMutation.mutate(vehicleToDelete.id);
+    }
+  };
+
+  const filteredVehicles = vehicles.filter((v: any) =>
+    v.make.toLowerCase().includes(search.toLowerCase()) ||
     v.model.toLowerCase().includes(search.toLowerCase()) ||
     v.plate.toLowerCase().includes(search.toLowerCase())
   );
@@ -268,52 +388,115 @@ function Vehicles() {
         <div className="flex gap-4">
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search vehicles..." 
+            <Input
+              placeholder="Search vehicles..."
               className="pl-10 glass-panel"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleAddVehicle}>
             <Plus className="w-4 h-4" /> Add Vehicle
           </Button>
         </div>
       </div>
 
       <Card className="border-none subtle-shadow overflow-hidden">
-        <Table>
-          <TableHeader className="bg-secondary/50">
-            <TableRow>
-              <TableHead className="w-[100px]">Year</TableHead>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>License Plate</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredVehicles.map((car) => (
-              <TableRow key={car.id} className="hover:bg-secondary/20 transition-colors">
-                <TableCell className="font-medium">{car.year}</TableCell>
-                <TableCell className="font-semibold">{car.make} {car.model}</TableCell>
-                <TableCell>{car.type}</TableCell>
-                <TableCell><code className="bg-secondary px-2 py-1 rounded text-xs font-mono">{car.plate}</code></TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${car.status === "In-House" ? "bg-green-500" : "bg-orange-500"}`} />
-                    <span className="text-sm font-medium">{car.status}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </TableCell>
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground">Loading vehicles...</div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-secondary/50">
+              <TableRow>
+                <TableHead className="w-[100px]">Year</TableHead>
+                <TableHead>Vehicle</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>License Plate</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredVehicles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground p-8">
+                    No vehicles found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredVehicles.map((car: any) => (
+                  <TableRow key={car.id} className="hover:bg-secondary/20 transition-colors">
+                    <TableCell className="font-medium">{car.year}</TableCell>
+                    <TableCell className="font-semibold">{car.make} {car.model}</TableCell>
+                    <TableCell>{car.type}</TableCell>
+                    <TableCell><code className="bg-secondary px-2 py-1 rounded text-xs font-mono">{car.plate}</code></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          car.status === "In-House" ? "bg-green-500" :
+                          car.status === "Loaned" ? "bg-orange-500" :
+                          "bg-yellow-500"
+                        }`} />
+                        <span className="text-sm font-medium">{car.status}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditVehicle(car)}
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setVehicleToDelete(car)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </Card>
+
+      <VehicleEditDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        vehicle={selectedVehicle}
+        onSave={handleSaveVehicle}
+        mode={editMode}
+      />
+
+      <AlertDialog open={!!vehicleToDelete} onOpenChange={() => setVehicleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Vehicle</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {vehicleToDelete?.make} {vehicleToDelete?.model} ({vehicleToDelete?.plate})?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteVehicle}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
