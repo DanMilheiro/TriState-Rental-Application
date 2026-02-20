@@ -1,34 +1,23 @@
-app = 'rental-tracker-pro'
+# fly.toml app configuration file generated for app-ancient-sunset-5811 on 2026-02-20T14:26:35Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'app-ancient-sunset-5811'
 primary_region = 'iad'
 
 [build]
 
-[deploy]
-  release_command = 'echo "Build complete"'
-
-[env]
-  NODE_ENV = 'production'
-  PORT = '8080'
-
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'off'
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   processes = ['app']
-
-  [http_service.concurrency]
-    type = 'connections'
-    hard_limit = 250
-    soft_limit = 200
 
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-
-[mounts]
-  source = 'rental_tracker_data'
-  destination = '/app/backups'
-  initial_size = '1gb'
+  memory_mb = 256
