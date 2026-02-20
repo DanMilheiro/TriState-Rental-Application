@@ -66,7 +66,10 @@ RUN mkdir -p /app/backups/agreements \
              /app/backups/logs
 
 # Expose application port
-EXPOSE 3000
+EXPOSE 8080
+
+# Set PORT for Fly.io
+ENV PORT=8080
 
 # Start the application
 CMD ["npm", "start"]
