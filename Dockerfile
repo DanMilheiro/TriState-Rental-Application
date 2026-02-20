@@ -1,24 +1,28 @@
-# Stage 1: Builder
+# ============================================
+# Stage 1: Builder with ALL dependencies
+# ============================================
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install ALL dependencies (including devDependencies for build tools)
+# Install ALL dependencies including devDependencies (tsx, esbuild, vite, etc.)
 RUN npm ci
 
-# Copy application source files
+# Copy all source files
 COPY . .
 
-# Build the application (requires tsx, esbuild, vite from devDependencies)
+# Build the application
 RUN npm run build
 
-# Stage 2: Production
-FROM node:20-slim
+# ============================================
+# Stage 2: Production with minimal dependencies
+# ============================================
+FROM node:20-slim AS production
 
-# Install dependencies for Puppeteer (needed for runtime PDF generation)
+# Install runtime dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -39,7 +43,7 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer to use installed Chromium
+# Configure Puppeteer to use system Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
@@ -51,16 +55,17 @@ COPY package*.json ./
 # Install ONLY production dependencies
 RUN npm ci --omit=dev
 
-# Copy built application from builder stage
+# Copy built artifacts from builder stage
 COPY --from=builder /app/dist ./dist
-
-# Copy other necessary runtime files
 COPY --from=builder /app/client/public ./client/public
 
-# Create backup directories
-RUN mkdir -p /app/backups/agreements /app/backups/vehicles /app/backups/database-dumps /app/backups/logs
+# Create directories for backups
+RUN mkdir -p /app/backups/agreements \
+             /app/backups/vehicles \
+             /app/backups/database-dumps \
+             /app/backups/logs
 
-# Expose port
+# Expose application port
 EXPOSE 3000
 
 # Start the application
