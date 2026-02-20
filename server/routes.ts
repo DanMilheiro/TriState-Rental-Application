@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { storage } from "./storage";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -11,7 +12,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-
   app.get("/api/vehicles", async (req, res) => {
     try {
       const { data, error } = await supabase
@@ -213,7 +213,6 @@ export async function registerRoutes(
         .single();
 
       if (error) throw error;
-
       res.json(data);
     } catch (error) {
       console.error("Error creating agreement:", error);
@@ -252,7 +251,6 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to update agreement" });
     }
   });
-
 
   return httpServer;
 }
