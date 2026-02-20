@@ -1,14 +1,10 @@
-version: '3.8'
-
 services:
   rental-tracker:
     build: .
     ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - BACKUP_PATH=/app/backups
-      - BACKUP_ENABLED=true
+      - "5000:5000"
+    env_file:
+      - .env
     volumes:
       # Windows path mapping - ensure the path exists on your Windows machine
       - C:\Users\Service 2\TriStateRentals\Backups:/app/backups
