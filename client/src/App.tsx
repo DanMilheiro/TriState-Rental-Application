@@ -41,6 +41,20 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2, Edit } from "lucide-react";
 
+// Mock Data
+const MOCK_VEHICLES = [
+  { id: "1", make: "Toyota", model: "Camry", year: "2024", status: "In-House", plate: "ABC-1234", type: "Sedan" },
+  { id: "2", make: "Honda", model: "Civic", year: "2023", status: "Loaned", plate: "XYZ-5678", type: "Sedan" },
+  { id: "3", make: "Ford", model: "Explorer", year: "2024", status: "In-House", plate: "RST-9012", type: "SUV" },
+  { id: "4", make: "Tesla", model: "Model 3", year: "2023", status: "Loaned", plate: "ELC-4321", type: "Electric" },
+  { id: "5", make: "Jeep", model: "Grand Cherokee", year: "2024", status: "In-House", plate: "JEP-7788", type: "SUV" },
+];
+
+const MOCK_AGREEMENTS = [
+  { id: "AGR-001", customer: "John Doe", vehicle: "Honda Civic (2023)", date: "2026-02-18", status: "Active" },
+  { id: "AGR-002", customer: "Jane Smith", vehicle: "Tesla Model 3 (2023)", date: "2026-02-19", status: "Active" },
+  { id: "AGR-003", customer: "Robert Wilson", vehicle: "Toyota Camry (2024)", date: "2026-02-15", status: "Completed" },
+];
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -52,29 +66,9 @@ function Layout({ children }: { children: React.ReactNode }) {
     { href: "/agreements", icon: FileText, label: "Agreements" },
   ];
 
-  const queryClient = useQueryClient();
-
-  const createAgreementMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await fetch("/api/agreements", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create agreement");
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["agreements"] });
-      toast.success("Rental agreement created successfully!");
-    },
-    onError: () => {
-      toast.error("Failed to create agreement");
-    },
-  });
-
   const handleAgreementSubmit = (data: any) => {
-    createAgreementMutation.mutate(data);
+    console.log("Agreement data:", data);
+    toast.success("Rental agreement created successfully!");
   };
 
   return (
@@ -132,22 +126,13 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function Dashboard() {
-  const [selectedAgreement, setSelectedAgreement] = useState<any>(null);
+  const [selectedAgreement, setSelectedAgreement] = useState<typeof MOCK_AGREEMENTS[0] | null>(null);
 
   const { data: vehicles = [] } = useQuery({
     queryKey: ["vehicles"],
     queryFn: async () => {
       const response = await fetch("/api/vehicles");
       if (!response.ok) throw new Error("Failed to fetch vehicles");
-      return response.json();
-    },
-  });
-
-  const { data: agreements = [] } = useQuery({
-    queryKey: ["agreements"],
-    queryFn: async () => {
-      const response = await fetch("/api/agreements");
-      if (!response.ok) throw new Error("Failed to fetch agreements");
       return response.json();
     },
   });
@@ -159,7 +144,7 @@ function Dashboard() {
   const stats = [
     { label: "Total Vehicles", value: totalVehicles.toString(), icon: Car, color: "text-blue-600", bg: "bg-blue-100" },
     { label: "Currently Loaned", value: loanedVehicles.toString(), icon: Clock, color: "text-orange-600", bg: "bg-orange-100" },
-    { label: "Active Agreements", value: agreements.filter((a: any) => a.status === "Active").length.toString(), icon: FileText, color: "text-green-600", bg: "bg-green-100" },
+    { label: "Active Agreements", value: MOCK_AGREEMENTS.filter(a => a.status === "Active").length.toString(), icon: FileText, color: "text-green-600", bg: "bg-green-100" },
     { label: "Fleet Utilization", value: `${loanedPercentage}%`, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-100" },
   ];
 
@@ -190,30 +175,26 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {agreements.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No agreements yet</p>
-              ) : (
-                agreements.slice(0, 3).map((agr: any) => (
-                  <div
-                    key={agr.id}
-                    className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer"
-                    onClick={() => setSelectedAgreement(agr)}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-white rounded-lg subtle-shadow">
-                        <FileText className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold">{agr.renter_name}</p>
-                        <p className="text-sm text-muted-foreground">{agr.current_make} {agr.current_model} ({agr.current_year})</p>
-                      </div>
+              {MOCK_AGREEMENTS.map((agr) => (
+                <div
+                  key={agr.id}
+                  className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer"
+                  onClick={() => setSelectedAgreement(agr)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-white rounded-lg subtle-shadow">
+                      <FileText className="w-5 h-5 text-primary" />
                     </div>
-                    <Badge variant={agr.status === "Active" ? "default" : "secondary"}>
-                      {agr.status}
-                    </Badge>
+                    <div>
+                      <p className="font-semibold">{agr.customer}</p>
+                      <p className="text-sm text-muted-foreground">{agr.vehicle}</p>
+                    </div>
                   </div>
-                ))
-              )}
+                  <Badge variant={agr.status === "Active" ? "default" : "secondary"}>
+                    {agr.status}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -244,134 +225,41 @@ function Dashboard() {
       </div>
 
       <Dialog open={!!selectedAgreement} onOpenChange={() => setSelectedAgreement(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Agreement Details - {selectedAgreement?.agreement_number}</DialogTitle>
+            <DialogTitle>Agreement Details</DialogTitle>
           </DialogHeader>
           {selectedAgreement && (
-            <div className="space-y-6">
-              <div id="agreement-pdf-content" className="bg-white p-8 space-y-6">
-                <div className="text-center border-b pb-4">
-                  <h2 className="text-2xl font-bold">TRI-STATE AUTO RENTAL LLC.</h2>
-                  <p className="text-sm">718 COTTAGE STREET, PAWTUCKET, RI 02861</p>
-                  <p className="text-sm">508-761-9700</p>
-                  <p className="text-lg font-semibold mt-2">RENTAL AGREEMENT #{selectedAgreement.agreement_number}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Renter Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">Name:</span> {selectedAgreement.renter_name}</p>
-                      <p><span className="font-semibold">Address:</span> {selectedAgreement.renter_address}</p>
-                      <p><span className="font-semibold">City, State ZIP:</span> {selectedAgreement.renter_city}, {selectedAgreement.renter_state} {selectedAgreement.renter_zip_code}</p>
-                      <p><span className="font-semibold">Phone:</span> {selectedAgreement.renter_phone}</p>
-                      <p><span className="font-semibold">Email:</span> {selectedAgreement.renter_email}</p>
-                      <p><span className="font-semibold">Date of Birth:</span> {new Date(selectedAgreement.date_of_birth).toLocaleDateString()}</p>
-                      <p><span className="font-semibold">Driver's License:</span> {selectedAgreement.drivers_license} ({selectedAgreement.license_state})</p>
-                      <p><span className="font-semibold">License Exp:</span> {new Date(selectedAgreement.license_expiration).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Insurance Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">Company:</span> {selectedAgreement.insurance_company}</p>
-                      <p><span className="font-semibold">Policy #:</span> {selectedAgreement.policy_number}</p>
-                      <p><span className="font-semibold">Expiration:</span> {new Date(selectedAgreement.policy_expiration).toLocaleDateString()}</p>
-                      {selectedAgreement.insurance_agent && <p><span className="font-semibold">Agent:</span> {selectedAgreement.insurance_agent}</p>}
-                      {selectedAgreement.agent_phone && <p><span className="font-semibold">Agent Phone:</span> {selectedAgreement.agent_phone}</p>}
-                      {selectedAgreement.adjuster && <p><span className="font-semibold">Adjuster:</span> {selectedAgreement.adjuster}</p>}
-                      {selectedAgreement.adjuster_phone && <p><span className="font-semibold">Adjuster Phone:</span> {selectedAgreement.adjuster_phone}</p>}
-                      {selectedAgreement.claim_number && <p><span className="font-semibold">Claim #:</span> {selectedAgreement.claim_number}</p>}
-                      {selectedAgreement.date_of_loss && <p><span className="font-semibold">Date of Loss:</span> {new Date(selectedAgreement.date_of_loss).toLocaleDateString()}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  {(selectedAgreement.original_car_number || selectedAgreement.original_make) && (
-                    <div>
-                      <h3 className="font-bold text-lg mb-3 border-b pb-2">Original Vehicle</h3>
-                      <div className="space-y-2 text-sm">
-                        {selectedAgreement.original_car_number && <p><span className="font-semibold">VIN:</span> {selectedAgreement.original_car_number}</p>}
-                        {selectedAgreement.original_license && <p><span className="font-semibold">License:</span> {selectedAgreement.original_license}</p>}
-                        {selectedAgreement.original_year && <p><span className="font-semibold">Year:</span> {selectedAgreement.original_year}</p>}
-                        {selectedAgreement.original_make && <p><span className="font-semibold">Make/Model:</span> {selectedAgreement.original_make} {selectedAgreement.original_model}</p>}
-                        {selectedAgreement.original_color && <p><span className="font-semibold">Color:</span> {selectedAgreement.original_color}</p>}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Rental Vehicle</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">VIN:</span> {selectedAgreement.current_car_number}</p>
-                      <p><span className="font-semibold">License:</span> {selectedAgreement.current_license}</p>
-                      <p><span className="font-semibold">Year:</span> {selectedAgreement.current_year}</p>
-                      <p><span className="font-semibold">Make/Model:</span> {selectedAgreement.current_make} {selectedAgreement.current_model}</p>
-                      <p><span className="font-semibold">Color:</span> {selectedAgreement.current_color}</p>
-                      {selectedAgreement.date_due_back && <p><span className="font-semibold">Due Back:</span> {new Date(selectedAgreement.date_due_back).toLocaleDateString()}</p>}
-                      {selectedAgreement.mileage_out && <p><span className="font-semibold">Mileage Out:</span> {selectedAgreement.mileage_out}</p>}
-                      {selectedAgreement.fuel_gauge_out && <p><span className="font-semibold">Fuel Out:</span> {selectedAgreement.fuel_gauge_out}</p>}
-                    </div>
-                  </div>
-                </div>
-
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-bold text-lg mb-3 border-b pb-2">Terms & Conditions</h3>
-                  <div className="space-y-2 text-sm">
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>NO SMOKING - $250 cleaning fee</li>
-                      <li>NO PETS - $250 cleaning fee (except service animals)</li>
-                      <li>REFILL GAS - Return with same fuel level</li>
-                      <li>Vehicles can be driven in RI, MA, and CT only</li>
-                      <li>Call 30 mins before returning rental vehicle</li>
-                      <li>Minimum charge is one day (24 hours). Rates do not include gasoline.</li>
-                    </ul>
-                    <div className="mt-4 pt-4 border-t">
-                      <p><span className="font-semibold">Sales Tax:</span> {selectedAgreement.sales_tax}%</p>
-                      <p><span className="font-semibold">RI State Sales Tax:</span> {selectedAgreement.state_sales_tax}%</p>
-                      <p><span className="font-semibold">Fuel Charges:</span> ${selectedAgreement.fuel_charges}/GAL</p>
-                      {selectedAgreement.deposits && <p><span className="font-semibold">Deposits:</span> ${selectedAgreement.deposits}</p>}
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground">Agreement ID</p>
+                  <p className="font-semibold">{selectedAgreement.id}</p>
                 </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground">Agreement created: {new Date(selectedAgreement.created_at).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Status: {selectedAgreement.status}</p>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={selectedAgreement.status === "Active" ? "default" : "secondary"}>
+                    {selectedAgreement.status}
+                  </Badge>
                 </div>
               </div>
-
-              <div className="pt-4 flex justify-end gap-2 border-t">
+              <div>
+                <p className="text-sm text-muted-foreground">Customer</p>
+                <p className="font-semibold">{selectedAgreement.customer}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Vehicle</p>
+                <p className="font-semibold">{selectedAgreement.vehicle}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Start Date</p>
+                <p className="font-semibold">{selectedAgreement.date}</p>
+              </div>
+              <div className="pt-4 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedAgreement(null)}>
                   Close
                 </Button>
-                <Button onClick={() => {
-                  const content = document.getElementById('agreement-pdf-content');
-                  if (content) {
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {
-                      printWindow.document.write(`
-                        <html>
-                          <head>
-                            <title>Rental Agreement ${selectedAgreement.agreement_number}</title>
-                            <style>
-                              body { font-family: Arial, sans-serif; padding: 20px; }
-                              h2, h3 { margin-top: 0; }
-                              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                              @media print { body { padding: 0; } }
-                            </style>
-                          </head>
-                          <body>${content.innerHTML}</body>
-                        </html>
-                      `);
-                      printWindow.document.close();
-                      printWindow.print();
-                    }
-                  }
-                }}>
+                <Button>
                   <FileText className="w-4 h-4 mr-2" />
                   Print Agreement
                 </Button>
@@ -614,45 +502,6 @@ function Vehicles() {
 }
 
 function Agreements() {
-  const [selectedAgreement, setSelectedAgreement] = useState<any>(null);
-
-  const { data: agreements = [], isLoading } = useQuery({
-    queryKey: ["agreements"],
-    queryFn: async () => {
-      const response = await fetch("/api/agreements");
-      if (!response.ok) throw new Error("Failed to fetch agreements");
-      return response.json();
-    },
-  });
-
-  const handlePrintPDF = (agr: any) => {
-    setSelectedAgreement(agr);
-    setTimeout(() => {
-      const content = document.getElementById('agreement-pdf-content');
-      if (content) {
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(`
-            <html>
-              <head>
-                <title>Rental Agreement ${agr.agreement_number}</title>
-                <style>
-                  body { font-family: Arial, sans-serif; padding: 20px; }
-                  h2, h3 { margin-top: 0; }
-                  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                  @media print { body { padding: 0; } }
-                </style>
-              </head>
-              <body>${content.innerHTML}</body>
-            </html>
-          `);
-          printWindow.document.close();
-          printWindow.print();
-        }
-      }
-    }, 100);
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div>
@@ -664,39 +513,33 @@ function Agreements() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none subtle-shadow">
             <CardHeader>
-              <CardTitle>All Contracts</CardTitle>
+              <CardTitle>Active Contracts</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <p className="text-muted-foreground text-center py-8">Loading agreements...</p>
-              ) : agreements.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No agreements yet. Create your first rental agreement to get started.</p>
-              ) : (
-                <div className="space-y-4">
-                  {agreements.map((agr: any) => (
-                    <div key={agr.id} className="flex items-center justify-between p-6 rounded-2xl border bg-white hover:shadow-md transition-all group">
-                      <div className="flex items-center gap-6">
-                        <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-lg">{agr.renter_name}</h4>
-                            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">{agr.agreement_number}</Badge>
-                          </div>
-                          <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                            <Car className="w-3 h-3" /> {agr.current_make} {agr.current_model} ({agr.current_year}) • Created {new Date(agr.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
+              <div className="space-y-4">
+                {MOCK_AGREEMENTS.map((agr) => (
+                  <div key={agr.id} className="flex items-center justify-between p-6 rounded-2xl border bg-white hover:shadow-md transition-all group">
+                    <div className="flex items-center gap-6">
+                      <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                        <FileText className="w-6 h-6" />
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Button variant="outline" size="sm" onClick={() => handlePrintPDF(agr)}>Print PDF</Button>
-                        <Button size="sm" onClick={() => setSelectedAgreement(agr)}>Details</Button>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-lg">{agr.customer}</h4>
+                          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">{agr.id}</Badge>
+                        </div>
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                          <Car className="w-3 h-3" /> {agr.vehicle} • Started {agr.date}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex items-center gap-4">
+                      <Button variant="outline" size="sm">Print PDF</Button>
+                      <Button size="sm">Details</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -704,162 +547,47 @@ function Agreements() {
         <div className="space-y-6">
           <Card className="bg-primary text-white border-none subtle-shadow shadow-primary/20">
             <CardHeader>
-              <CardTitle>Statistics</CardTitle>
-              <p className="text-primary-foreground/80 text-sm">Current rental agreement overview</p>
+              <CardTitle>New Agreement</CardTitle>
+              <p className="text-primary-foreground/80 text-sm">Quickly generate a new rental contract for a waiting customer.</p>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Button className="w-full bg-white text-primary hover:bg-white/90 font-bold py-6 text-lg rounded-xl shadow-xl">
+                Start Contract
+              </Button>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-white/10 rounded-lg text-center">
-                  <p className="text-xs text-primary-foreground/60 uppercase font-bold">Total</p>
-                  <p className="text-xl font-bold">{agreements.length}</p>
+                  <p className="text-xs text-primary-foreground/60 uppercase font-bold">Pending</p>
+                  <p className="text-xl font-bold">3</p>
                 </div>
                 <div className="p-3 bg-white/10 rounded-lg text-center">
-                  <p className="text-xs text-primary-foreground/60 uppercase font-bold">Active</p>
-                  <p className="text-xl font-bold">{agreements.filter((a: any) => a.status === "Active").length}</p>
+                  <p className="text-xs text-primary-foreground/60 uppercase font-bold">Due Today</p>
+                  <p className="text-xl font-bold">2</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none subtle-shadow bg-secondary/30">
+            <CardHeader>
+              <CardTitle className="text-sm">Agreement Templates</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="p-3 bg-white rounded-lg text-sm font-medium border cursor-pointer hover:border-primary transition-colors flex items-center justify-between">
+                Standard Rental
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="p-3 bg-white rounded-lg text-sm font-medium border cursor-pointer hover:border-primary transition-colors flex items-center justify-between">
+                Insurance Loaner
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="p-3 bg-white rounded-lg text-sm font-medium border cursor-pointer hover:border-primary transition-colors flex items-center justify-between">
+                Service Replacement
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      <Dialog open={!!selectedAgreement} onOpenChange={() => setSelectedAgreement(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Agreement Details - {selectedAgreement?.agreement_number}</DialogTitle>
-          </DialogHeader>
-          {selectedAgreement && (
-            <div className="space-y-6">
-              <div id="agreement-pdf-content" className="bg-white p-8 space-y-6">
-                <div className="text-center border-b pb-4">
-                  <h2 className="text-2xl font-bold">TRI-STATE AUTO RENTAL LLC.</h2>
-                  <p className="text-sm">718 COTTAGE STREET, PAWTUCKET, RI 02861</p>
-                  <p className="text-sm">508-761-9700</p>
-                  <p className="text-lg font-semibold mt-2">RENTAL AGREEMENT #{selectedAgreement.agreement_number}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Renter Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">Name:</span> {selectedAgreement.renter_name}</p>
-                      <p><span className="font-semibold">Address:</span> {selectedAgreement.renter_address}</p>
-                      <p><span className="font-semibold">City, State ZIP:</span> {selectedAgreement.renter_city}, {selectedAgreement.renter_state} {selectedAgreement.renter_zip_code}</p>
-                      <p><span className="font-semibold">Phone:</span> {selectedAgreement.renter_phone}</p>
-                      <p><span className="font-semibold">Email:</span> {selectedAgreement.renter_email}</p>
-                      <p><span className="font-semibold">Date of Birth:</span> {new Date(selectedAgreement.date_of_birth).toLocaleDateString()}</p>
-                      <p><span className="font-semibold">Driver's License:</span> {selectedAgreement.drivers_license} ({selectedAgreement.license_state})</p>
-                      <p><span className="font-semibold">License Exp:</span> {new Date(selectedAgreement.license_expiration).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Insurance Information</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">Company:</span> {selectedAgreement.insurance_company}</p>
-                      <p><span className="font-semibold">Policy #:</span> {selectedAgreement.policy_number}</p>
-                      <p><span className="font-semibold">Expiration:</span> {new Date(selectedAgreement.policy_expiration).toLocaleDateString()}</p>
-                      {selectedAgreement.insurance_agent && <p><span className="font-semibold">Agent:</span> {selectedAgreement.insurance_agent}</p>}
-                      {selectedAgreement.agent_phone && <p><span className="font-semibold">Agent Phone:</span> {selectedAgreement.agent_phone}</p>}
-                      {selectedAgreement.adjuster && <p><span className="font-semibold">Adjuster:</span> {selectedAgreement.adjuster}</p>}
-                      {selectedAgreement.adjuster_phone && <p><span className="font-semibold">Adjuster Phone:</span> {selectedAgreement.adjuster_phone}</p>}
-                      {selectedAgreement.claim_number && <p><span className="font-semibold">Claim #:</span> {selectedAgreement.claim_number}</p>}
-                      {selectedAgreement.date_of_loss && <p><span className="font-semibold">Date of Loss:</span> {new Date(selectedAgreement.date_of_loss).toLocaleDateString()}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  {(selectedAgreement.original_car_number || selectedAgreement.original_make) && (
-                    <div>
-                      <h3 className="font-bold text-lg mb-3 border-b pb-2">Original Vehicle</h3>
-                      <div className="space-y-2 text-sm">
-                        {selectedAgreement.original_car_number && <p><span className="font-semibold">VIN:</span> {selectedAgreement.original_car_number}</p>}
-                        {selectedAgreement.original_license && <p><span className="font-semibold">License:</span> {selectedAgreement.original_license}</p>}
-                        {selectedAgreement.original_year && <p><span className="font-semibold">Year:</span> {selectedAgreement.original_year}</p>}
-                        {selectedAgreement.original_make && <p><span className="font-semibold">Make/Model:</span> {selectedAgreement.original_make} {selectedAgreement.original_model}</p>}
-                        {selectedAgreement.original_color && <p><span className="font-semibold">Color:</span> {selectedAgreement.original_color}</p>}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <h3 className="font-bold text-lg mb-3 border-b pb-2">Rental Vehicle</h3>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="font-semibold">VIN:</span> {selectedAgreement.current_car_number}</p>
-                      <p><span className="font-semibold">License:</span> {selectedAgreement.current_license}</p>
-                      <p><span className="font-semibold">Year:</span> {selectedAgreement.current_year}</p>
-                      <p><span className="font-semibold">Make/Model:</span> {selectedAgreement.current_make} {selectedAgreement.current_model}</p>
-                      <p><span className="font-semibold">Color:</span> {selectedAgreement.current_color}</p>
-                      {selectedAgreement.date_due_back && <p><span className="font-semibold">Due Back:</span> {new Date(selectedAgreement.date_due_back).toLocaleDateString()}</p>}
-                      {selectedAgreement.mileage_out && <p><span className="font-semibold">Mileage Out:</span> {selectedAgreement.mileage_out}</p>}
-                      {selectedAgreement.fuel_gauge_out && <p><span className="font-semibold">Fuel Out:</span> {selectedAgreement.fuel_gauge_out}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-lg mb-3 border-b pb-2">Terms & Conditions</h3>
-                  <div className="space-y-2 text-sm">
-                    <ul className="list-disc pl-5 space-y-1">
-                      <li>NO SMOKING - $250 cleaning fee</li>
-                      <li>NO PETS - $250 cleaning fee (except service animals)</li>
-                      <li>REFILL GAS - Return with same fuel level</li>
-                      <li>Vehicles can be driven in RI, MA, and CT only</li>
-                      <li>Call 30 mins before returning rental vehicle</li>
-                      <li>Minimum charge is one day (24 hours). Rates do not include gasoline.</li>
-                    </ul>
-                    <div className="mt-4 pt-4 border-t">
-                      <p><span className="font-semibold">Sales Tax:</span> {selectedAgreement.sales_tax}%</p>
-                      <p><span className="font-semibold">RI State Sales Tax:</span> {selectedAgreement.state_sales_tax}%</p>
-                      <p><span className="font-semibold">Fuel Charges:</span> ${selectedAgreement.fuel_charges}/GAL</p>
-                      {selectedAgreement.deposits && <p><span className="font-semibold">Deposits:</span> ${selectedAgreement.deposits}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground">Agreement created: {new Date(selectedAgreement.created_at).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Status: {selectedAgreement.status}</p>
-                </div>
-              </div>
-
-              <div className="pt-4 flex justify-end gap-2 border-t">
-                <Button variant="outline" onClick={() => setSelectedAgreement(null)}>
-                  Close
-                </Button>
-                <Button onClick={() => {
-                  const content = document.getElementById('agreement-pdf-content');
-                  if (content) {
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {
-                      printWindow.document.write(`
-                        <html>
-                          <head>
-                            <title>Rental Agreement ${selectedAgreement.agreement_number}</title>
-                            <style>
-                              body { font-family: Arial, sans-serif; padding: 20px; }
-                              h2, h3 { margin-top: 0; }
-                              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-                              @media print { body { padding: 0; } }
-                            </style>
-                          </head>
-                          <body>${content.innerHTML}</body>
-                        </html>
-                      `);
-                      printWindow.document.close();
-                      printWindow.print();
-                    }
-                  }
-                }}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Print Agreement
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
